@@ -1,0 +1,267 @@
+---
+import BaseHead from '../components/BaseHead.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+
+// টিম লিস্ট (KHL Teams)
+const teams = [
+  { key: 'kazan', name: 'Kazan' },
+  { key: 'avtomobilist', name: 'Avtomobilist' },
+  { key: 'vladivostok', name: 'Admiral Vladivostok' },
+  { key: 'khabarovsk', name: 'Khabarovsk' },
+  { key: 'omsk', name: 'Omsk' },
+  { key: 'astana', name: 'Barys Astana' },
+  { key: 'cska', name: 'CSKA Moscow' },
+  { key: 'minsk', name: 'Dinamo Minsk' },
+  { key: 'dinamo', name: 'Dinamo Moscow' },
+  { key: 'togliatti', name: 'Lada Togliatti' },
+  { key: 'yaroslavl', name: 'Lokomotiv Yaroslavl' },
+  { key: 'magnitogorsk', name: 'Metallurg Magnitogorsk' },
+  { key: 'ufa', name: 'Salavat Yulaev Ufa' },
+  { key: 'petersburg', name: 'SKA St. Petersburg' },
+  { key: 'moscow', name: 'Spartak Moscow' },
+  { key: 'traktor', name: 'Traktor Chelyabinsk' },
+  { key: 'kunlun', name: 'Kunlun Red Star' },
+  { key: 'sochi', name: 'HC Sochi' },
+  { key: 'neftekhimik', name: 'Neftekhimik' }
+];
+---
+
+<!doctype html>
+<html lang="bn">
+	<head>
+		<BaseHead title="KHL Stream Link Manager" description="Manage and embed KHL stream links easily in Astro" />
+	</head>
+	<body>
+		<Header />
+		<main>
+			<div class="khl-container">
+				<h2>🏒 KHL Stream Link Manager</h2>
+				<p class="subtitle">লোগোগুলো স্বয়ংক্রিয়ভাবে TheSportsDB API থেকে লোড হবে।</p>
+
+				<!-- ইমবেড ভিডিও প্লেয়ার সেকশন -->
+				<div class="player-wrapper">
+					<h3>Live Stream Preview</h3>
+					<div id="embed-box" class="embed-box">
+						<p id="no-stream-msg">কোনো স্ট্রিম সিলেক্ট করা হয়নি</p>
+						<iframe id="stream-iframe" class="hidden" frameborder="0" allowfullscreen allow="encrypted-media"></iframe>
+					</div>
+				</div>
+
+				<!-- ম্যানেজমেন্ট ফর্ম -->
+				<div class="form-wrapper">
+					<div class="sticky-bar">
+						<button id="save-btn" class="btn-primary">Save All Links</button>
+						<label class="switch-label">
+							<span>Master Switch:</span>
+							<input type="checkbox" id="master-toggle" checked />
+						</label>
+					</div>
+
+					<div class="team-list">
+						{teams.map((team) => (
+							<div class="team-card" data-team={team.key}>
+								<div class="team-header">
+									<img src={`https://www.thesportsdb.com/api/v1/json/123/searchteams.php?t=${encodeURIComponent(team.name)}`} alt={team.name} class="team-logo" loading="lazy" />
+									<span class="team-title">{team.name}</span>
+									<button type="button" class="toggle-btn">▼</button>
+								</div>
+								<div class="team-links hidden">
+									{[1, 2, 3, 4].map((i) => (
+										<div class="input-group">
+											<label>Stream {i}:</label>
+											<input type="url" class="stream-input" data-team={team.key} data-stream={i} placeholder="https://example.com/stream" />
+											<button type="button" class="play-btn" data-team={team.key} data-stream={i}>Play</button>
+										</div>
+									))}
+								</div>
+							</div>
+						))}
+					</div>
+				</div>
+			</div>
+		</main>
+		<Footer />
+
+		<script>
+			// Local Storage থেকে লিঙ্ক লোড এবং সেভ করার স্ক্রিপ্ট
+			document.addEventListener('DOMContentLoaded', () => {
+				const teamCards = document.querySelectorAll('.team-card');
+				const iframe = document.getElementById('stream-iframe') as HTMLIFrameElement;
+				const noStreamMsg = document.getElementById('no-stream-msg');
+				const saveBtn = document.getElementById('save-btn');
+				const masterToggle = document.getElementById('master-toggle') as HTMLInputElement;
+
+				// ১. আগের ডাটা লোড করা
+				const savedData = JSON.parse(localStorage.getItem('khl_streams') || '{}');
+				const masterStatus = localStorage.getItem('khl_master') !== 'off';
+				if (masterToggle) masterToggle.checked = masterStatus;
+
+				document.querySelectorAll('.stream-input').forEach((input) => {
+					const el = input as HTMLInputElement;
+					const team = el.dataset.team;
+					const stream = el.dataset.stream;
+					if (team && stream && savedData[`${team}_${stream}`]) {
+						el.value = savedData[`${team}_${stream}`];
+					}
+				});
+
+				// ২. অ্যাকর্ডিয়ন (Accordion) টগল
+				document.querySelectorAll('.team-header').forEach((header) => {
+					header.addEventListener('click', () => {
+						const linksDiv = header.nextElementSibling;
+						linksDiv?.classList.toggle('hidden');
+					});
+				});
+
+				// ৩. প্লেয়ার চালু করা
+				document.querySelectorAll('.play-btn').forEach((btn) => {
+					btn.addEventListener('click', (e) => {
+						const target = e.target as HTMLButtonElement;
+						const team = target.dataset.team;
+						const stream = target.dataset.stream;
+						const input = document.querySelector(`.stream-input[data-team="${team}"][data-stream="${stream}"]`) as HTMLInputElement;
+
+						if (input && input.value) {
+							if (iframe && noStreamMsg) {
+								iframe.src = input.value;
+								iframe.classList.remove('hidden');
+								noStreamMsg.classList.add('hidden');
+							}
+						} else {
+							alert('অনুগ্রহ করে একটি সঠিক স্ট্রিম ইউআরএল দিন!');
+						}
+					});
+				});
+
+				// ৪. ডাটা সেভ করা
+				saveBtn?.addEventListener('click', () => {
+					const newData: Record<string, string> = {};
+					document.querySelectorAll('.stream-input').forEach((input) => {
+						const el = input as HTMLInputElement;
+						const team = el.dataset.team;
+						const stream = el.dataset.stream;
+						if (team && stream && el.value) {
+							newData[`${team}_${stream}`] = el.value;
+						}
+					});
+					localStorage.setItem('khl_streams', JSON.stringify(newData));
+					localStorage.setItem('khl_master', masterToggle?.checked ? 'on' : 'off');
+					alert('সকল স্ট্রিম লিংক সফলভাবে সেভ হয়েছে!');
+				});
+			});
+		</script>
+
+		<style>
+			.khl-container {
+				max-width: 900px;
+				margin: 0 auto;
+				padding: 20px;
+				font-family: system-ui, sans-serif;
+			}
+			.subtitle {
+				color: #666;
+				margin-bottom: 20px;
+			}
+			.player-wrapper {
+				background: #000;
+				color: #fff;
+				padding: 15px;
+				border-radius: 8px;
+				margin-bottom: 30px;
+			}
+			.embed-box {
+				width: 100%;
+				height: 400px;
+				background: #111;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				border-radius: 4px;
+				overflow: hidden;
+			}
+			.embed-box iframe {
+				width: 100%;
+				height: 100%;
+			}
+			.sticky-bar {
+				position: sticky;
+				top: 10px;
+				background: #f4f4f4;
+				padding: 15px;
+				border-radius: 8px;
+				display: flex;
+				justify-content: space-between;
+				align-items: center;
+				margin-bottom: 20px;
+				box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+				z-index: 10;
+			}
+			.btn-primary {
+				background: #0073aa;
+				color: white;
+				border: none;
+				padding: 10px 20px;
+				border-radius: 5px;
+				cursor: pointer;
+				font-weight: bold;
+			}
+			.team-card {
+				background: #fff;
+				border: 1px solid #ddd;
+				border-radius: 6px;
+				margin-bottom: 10px;
+				overflow: hidden;
+			}
+			.team-header {
+				display: flex;
+				align-items: center;
+				padding: 12px;
+				background: #f9f9f9;
+				cursor: pointer;
+			}
+			.team-logo {
+				width: 30px;
+				height: 30px;
+				object-fit: contain;
+				margin-right: 12px;
+			}
+			.team-title {
+				font-weight: bold;
+				flex: 1;
+			}
+			.team-links {
+				padding: 15px;
+				background: #fff;
+				border-top: 1px solid #eee;
+			}
+			.input-group {
+				display: flex;
+				gap: 10px;
+				align-items: center;
+				margin-bottom: 10px;
+			}
+			.input-group label {
+				width: 80px;
+				font-size: 0.9em;
+			}
+			.stream-input {
+				flex: 1;
+				padding: 8px;
+				border: 1px solid #ccc;
+				border-radius: 4px;
+			}
+			.play-btn {
+				background: #28a745;
+				color: white;
+				border: none;
+				padding: 8px 15px;
+				border-radius: 4px;
+				cursor: pointer;
+			}
+			.hidden {
+				display: none !important;
+			}
+		</style>
+	</body>
+</html>
